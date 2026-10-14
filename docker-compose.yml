@@ -1,15 +1,73 @@
+x-api-common: &api-common
+  image: url-shortener:local
+
+  expose:
+    - "3000"
+
+  env_file:
+    - .env
+
+  restart: unless-stopped
+
+  depends_on:
+    redis:
+      condition: service_healthy
+
 services:
-  api:
+  api1:
+    <<: *api-common
+
     build:
       context: .
       dockerfile: Dockerfile
 
-    container_name: url-shortener-api
+    environment:
+      PORT: "3000"
+      INSTANCE_ID: "api-1"
+      PUBLIC_BASE_URL: "http://localhost:8080"
+      REDIS_URL: "redis://redis:6379"
+
+  api2:
+    <<: *api-common
+
+    environment:
+      PORT: "3000"
+      INSTANCE_ID: "api-2"
+      PUBLIC_BASE_URL: "http://localhost:8080"
+      REDIS_URL: "redis://redis:6379"
+
+  api3:
+    <<: *api-common
+
+    environment:
+      PORT: "3000"
+      INSTANCE_ID: "api-3"
+      PUBLIC_BASE_URL: "http://localhost:8080"
+      REDIS_URL: "redis://redis:6379"
+
+  nginx:
+    image: nginx:alpine
 
     ports:
-      - "3000:3000"
+      - "8080:80"
 
-    env_file:
-      - .env
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+    depends_on:
+      - api1
+      - api2
+      - api3
 
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
